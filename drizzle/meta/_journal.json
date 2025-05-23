@@ -15,6 +15,13 @@
       "when": 1747802645602,
       "tag": "0001_adorable_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1747990030115,
+      "tag": "0002_spicy_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }
