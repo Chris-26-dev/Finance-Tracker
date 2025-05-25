@@ -22,6 +22,13 @@
       "when": 1747990030115,
       "tag": "0002_spicy_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1748072364838,
+      "tag": "0003_outstanding_xorn",
+      "breakpoints": true
     }
   ]
 }
