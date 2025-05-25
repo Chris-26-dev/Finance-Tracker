@@ -7,6 +7,7 @@ import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { subDays, parse } from "date-fns";
+import { ZodType } from "zod/v4";
 
 
 const createTransactionSchema = insertTransactionSchema.omit({
@@ -133,6 +134,36 @@ const app = new Hono()
 
             return c.json({ data });
         })
+    .post(
+        "/bulk-create",
+        clerkMiddleware(),
+        zValidator(
+            "json",
+            z.array(
+                createTransactionSchema as unknown as z.ZodType
+            ),
+        ),
+        async (c) => {
+            const auth = getAuth(c);
+            const values = c.req.valid("json");
+
+            if (!auth?.userId){
+                return c.json({ error: "Unauthorized" }, 401);
+            }
+
+            const data = await db
+                .insert(transactions)
+                .values(
+                    values.map((value) => ({
+                    id: createId(),
+                    ...value,
+                    }))
+                )
+                .returning();
+
+                return c.json({ data });
+        },
+    )
     .post(
         "/bulk-delete",
         clerkMiddleware(),
