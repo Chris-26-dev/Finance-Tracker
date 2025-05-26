@@ -56,9 +56,16 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
     }),
 }));
 
-export const insertTransactionSchema = createInsertSchema(transactions, {
-  date: z.coerce.date() as unknown as ZodType,
+export const insertTransactionSchema = z.object({
+  id: z.string().optional(), // Optional if auto-generated
+  amount: z.number().int(),
+  payee: z.string(),
+  notes: z.string().optional().nullable(),
+  date: z.coerce.date(),
+  accountId: z.string(),
+  categoryId: z.string().optional().nullable(),
 });
+
 
 // const insertTransactionSchema: z.ZodObject<{
 //     date: z.ZodDate;

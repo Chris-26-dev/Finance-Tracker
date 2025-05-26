@@ -16,6 +16,7 @@ export const useCreateTransaction = () => {
     RequestType
     >({
         mutationFn: async (json) => {
+            console.log("Sending transaction data:", json);
             const response = await client.api.transactions.$post({ json });
             return await response.json();
         },
@@ -24,7 +25,8 @@ export const useCreateTransaction = () => {
             queryClient.invalidateQueries({ queryKey: ["transactions"] });
             // TODO: Invalidate summary
         },
-        onError: () => {
+        onError: (error) => {
+            console.error("Transaction creation failed:", error);
             toast.error("Failed to create transaction")
         },
     });
