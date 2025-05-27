@@ -21,7 +21,7 @@ import {
 
 const formSchema = insertTransactionSchema.omit({
     id: true,
-}) as unknown as z.ZodType<any, any, any>;
+});
 
 type FormValues = z.input<typeof formSchema>;
 

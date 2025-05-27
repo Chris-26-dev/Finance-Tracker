@@ -7,7 +7,6 @@ import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { subDays, parse } from "date-fns";
-import { ZodType } from "zod/v4";
 
 
 const createTransactionSchema = insertTransactionSchema.omit({
@@ -117,7 +116,7 @@ const app = new Hono()
         clerkMiddleware(),
         zValidator(
             "json",
-            createTransactionSchema as unknown as z.ZodType
+            createTransactionSchema
         ),
         async (c) => {
             const auth = getAuth(c);
@@ -140,7 +139,7 @@ const app = new Hono()
         zValidator(
             "json",
             z.array(
-                createTransactionSchema as unknown as z.ZodType
+                createTransactionSchema
             ),
         ),
         async (c) => {
@@ -218,7 +217,7 @@ const app = new Hono()
         ),
         zValidator(
             "json",
-            createTransactionSchema as unknown as z.ZodType
+            createTransactionSchema
         ),
         async (c) => {
             const auth = getAuth(c);

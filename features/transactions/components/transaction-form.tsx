@@ -31,7 +31,7 @@ const formSchema = z.object({
 
 const apiSchema = insertTransactionSchema.omit({
     id: true,
-}) as unknown as z.ZodType;
+});
 
 type FormValues = z.input<typeof formSchema>;
 type ApiFormValues = z.input<typeof apiSchema>;

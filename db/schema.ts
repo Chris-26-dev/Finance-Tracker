@@ -2,7 +2,6 @@ import { z } from "zod";
 import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
-import { ZodType } from "zod/v4";
 
 export const accounts = pgTable("accounts", {
     id: text("id").primaryKey(),
@@ -65,18 +64,3 @@ export const insertTransactionSchema = z.object({
   accountId: z.string(),
   categoryId: z.string().optional().nullable(),
 });
-
-
-// const insertTransactionSchema: z.ZodObject<{
-//     date: z.ZodDate;
-//     id: z.ZodString;
-//     amount: z.ZodNumber;
-//     payee: z.ZodString;
-//     notes: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-//     accountId: z.ZodString;
-//     categoryId: z.ZodOptional<...>;
-// }, z.UnknownKeysParam, z.ZodTypeAny, {
-//     ...;
-// }, {
-//     ...ZodType;
-// }>
