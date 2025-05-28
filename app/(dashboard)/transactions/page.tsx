@@ -16,10 +16,36 @@ import {
  } from "@/components/ui/card";
 
 import { columns } from "./columns";
+import { useState } from "react";
+import { UploadButton } from "./upload-button";
+import { ImportCard } from "./import-card";
 
+enum VARIANTS {
+    LIST = "LIST",
+    IMPORT = "IMPORT"
+};
 
+const INITIAL_IMPORT_RESULTS = {
+    data: [],
+    errors: [],
+    meta: {},
+};
 
 const TransactionsPage = () => {
+    const [variant, setVariant] = useState<VARIANTS>(VARIANTS.LIST);
+    const [importResults, setImportResults] = useState(INITIAL_IMPORT_RESULTS);
+
+    const onUpload = (results: typeof INITIAL_IMPORT_RESULTS) => {
+        console.log({ results });
+        setImportResults(results);
+        setVariant(VARIANTS.IMPORT);
+    };
+
+    const onCancelImport = () => {
+        setImportResults(INITIAL_IMPORT_RESULTS);
+        setVariant(VARIANTS.LIST);
+    }
+
     const newTransaction = useNewTransaction();
     const deleteTransactions = useBulkDeleteTransactions();
     const transactionsQuery = useGetTransactions();
@@ -46,6 +72,18 @@ const TransactionsPage = () => {
         )
     }
 
+    if (variant === VARIANTS.IMPORT) {
+        return (
+            <>
+                <ImportCard
+                    data={importResults.data}
+                    onCancel={onCancelImport}
+                    onSubmit={() => {}}
+                />
+            </>
+        )
+    }
+
     return (
         <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
             <Card className="mt-5 border-none drop-shadow-sm">
@@ -53,10 +91,15 @@ const TransactionsPage = () => {
                     <CardTitle className="text-xl line-clamp-1">
                         Transaction History
                     </CardTitle>
-                    <Button onClick={newTransaction.onOpen} size="sm">
+                    <div className="flex flex-ol lg:flex-row gap-y-2 items-center gap-x-2">
+                    <Button onClick={newTransaction.onOpen} size="sm" className="w-full lg:w-auto">
                         <Plus className ="size-4 mr-2" />
                         Add new
                     </Button>
+                    <UploadButton
+                        onUpload={onUpload}
+                    />
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <DataTable 
