@@ -14,7 +14,9 @@ const SEED_CATEGORIES = [
     { id: "category_1", name: "House", userId: SEED_USER_ID, plaidId: null },
     { id: "category_2", name: "Aerox", userId: SEED_USER_ID, plaidId: null },
     { id: "category_3", name: "Laptop", userId: SEED_USER_ID, plaidId: null },
-    { id: "category_7", name: "Japan", userId: SEED_USER_ID, plaidId: null },
+    { id: "category_4", name: "Japan", userId: SEED_USER_ID, plaidId: null },
+    { id: "category_5", name: "Clothing", userId: SEED_USER_ID, plaidId: null },
+    { id: "category_6", name: "Appliances", userId: SEED_USER_ID, plaidId: null },
 ];
 
 const SEED_ACCOUNTS = [
@@ -33,15 +35,19 @@ import { convertAmountToMiliunits } from "@/lib/utils";
 const generateRandomAmount = (category: typeof categories.$inferInsert) => {
     switch (category.name) {
         case "House":
-            return Math.random() * 400 + 90;
+            return Math.random() * 4000 + 90;
         case "Laptop":
-            return Math.random() * 200 + 50;
+            return Math.random() * 2000 + 50;
         case "Food":
-            return Math.random() * 30 + 10;
+            return Math.random() * 3000 + 10;
         case "Clothing":
+            return Math.random() * 530 + 10;
         case "Entertainment":
+        case "Appliances":
+            return Math.random() * 1000 + 10;
+        case "Dates":
         case "Japan":
-            return Math.random() * 50 + 15;
+            return Math.random() * 500 + 15;
         default:
             return Math.random() * 100 + 20; 
     }
@@ -58,7 +64,7 @@ const generateTransactionsForDay = (day: Date) => {
 
         SEED_TRANSACTIONS.push({
             id: `transaction_${format(day, "yyyy-MM-dd")}_${i}`,
-            accountId: SEED_ACCOUNTS[0].id, 
+            accountId: SEED_ACCOUNTS[1].id, 
             categoryId: category.id,
             date: day,
             amount: formattedAmount,
