@@ -31,11 +31,17 @@ It's a full-stack web app for tracking your finances. Easily manage income, expe
 
 .
 ├── app/ # Routes and layouts
+
 ├── components/ # Reusable UI components
+
 ├── features/ # Accounts, transactions, filters, etc.
+
 ├── db/ # Drizzle schema and migrations
+
 ├── lib/ # Utilities and configs
+
 ├── public/ # Static assets
+
 └── styles/ # Tailwind config and globals
 
 ---
