@@ -29,7 +29,6 @@ It's a full-stack web app for tracking your finances. Easily manage income, expe
 
 ## 📂 Project Structure
 
-.
 ├── app/ # Routes and layouts
 
 ├── components/ # Reusable UI components
@@ -46,35 +45,6 @@ It's a full-stack web app for tracking your finances. Easily manage income, expe
 
 ---
 
-## 🧪 Getting Started
-
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/YOUR_USERNAME/financio.git
-cd financio
-2. Install dependencies
-bash
-Copy
-Edit
-npm install
-3. Configure environment
-Create a .env file:
-
-ini
-Copy
-Edit
-DATABASE_URL=your_database_url
-4. Set up the database
-bash
-Copy
-Edit
-npx drizzle-kit push
-5. Start the development server
-bash
-Copy
-Edit
-npm run dev
 ✅ Todo
  Add paywall and settings
 
