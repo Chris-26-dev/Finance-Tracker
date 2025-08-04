@@ -6,7 +6,7 @@ import { categories, insertCategorySchema } from "@/db/schema";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { ZodType } from "zod/v4";
+//import { ZodType } from "zod/v4";
 
 const createCategorySchema = insertCategorySchema.pick({
     name: true,

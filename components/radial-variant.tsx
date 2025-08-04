@@ -44,9 +44,11 @@ export const RadialVariant = ({ data }: Props) => {
                     verticalAlign="bottom"
                     align="right"
                     iconType="circle"
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     content={({ payload }: any) => {
                         return (
                             <ul className="flex flex-col space-y-2">
+                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                 {payload.map((entry: any, index: number) => (
                                     <li 
                                         key={`item-${index}`}

@@ -1,5 +1,5 @@
 import CurrencyInput from "react-currency-input-field";
-import { Info, Minus, MinusCircle, PlusCircle } from "lucide-react";
+import { Info, MinusCircle, PlusCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { 
@@ -8,7 +8,6 @@ import {
     TooltipProvider,
     TooltipTrigger
  } from "@/components/ui/tooltip";
-import { placeholder } from "drizzle-orm";
 
  type Props = {
     value: string;

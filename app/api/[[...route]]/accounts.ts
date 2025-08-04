@@ -6,7 +6,7 @@ import { accounts, insertAccountSchema } from "@/db/schema";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { ZodType } from "zod/v4";
+//import { ZodType } from "zod/v4";
 
 const createAccountSchema = insertAccountSchema.pick({
     name: true,
