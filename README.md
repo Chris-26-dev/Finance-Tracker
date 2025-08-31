@@ -50,4 +50,4 @@ It's a full-stack web app for tracking your finances. Easily manage income, expe
 
 🙋‍♀️ Author
 Built with ❤️ by Christian
-Inspired by personal need and powered by modern web tools.
+Inspired by Code with antonio
