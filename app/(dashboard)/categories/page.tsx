@@ -1,23 +1,19 @@
 "use client";
-//Since this is a hook 
+
+import { Plus, Tags } from "lucide-react";
+
 import { useNewCategory } from "@/features/categories/hooks/use-new-category";
 import { useBulkDeleteCategories } from "@/features/categories/api/use-bulk-delete-categories";
 import { useGetCategories } from "@/features/categories/api/use-get-categories";
 
-
 import { DataTable } from "@/components/data-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus } from "lucide-react";
-import { 
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle
- } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { PageHeader } from "@/components/page-header";
+import { TableSkeleton } from "@/components/table-skeleton";
 
 import { columns } from "./columns";
-
 
 const CategoriesPage = () => {
     const newCategory = useNewCategory();
@@ -29,48 +25,58 @@ const CategoriesPage = () => {
         categoriesQuery.isLoading ||
         deleteCategories.isPending;
 
-    if (categoriesQuery.isLoading){
-        return (
-        <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
-            <Card className="mt-5 border-none drop-shadow-sm">
-                <CardHeader >
-                    <Skeleton className="h-8 w-48"/>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[500px] w-full flex items-center justify-center">
-                        <Loader2 className="size-6 text-slate-300 animate-spin"/>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-        )
-    }
-
     return (
-        <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
-            <Card className="mt-5 border-none drop-shadow-sm">
-                <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <CardTitle className="text-xl line-clamp-1">
-                        Categories page
-                    </CardTitle>
-                    <Button onClick={newCategory.onOpen} size="sm">
-                        <Plus className ="size-4 mr-2" />
-                        Add new
+        <div className="space-y-6">
+            <PageHeader
+                description="Categories group your spending so you can see where your money goes."
+                actions={
+                    <Button onClick={newCategory.onOpen}>
+                        <Plus className="size-4" />
+                        New category
                     </Button>
-                </CardHeader>
-                <CardContent>
-                    <DataTable 
-                    filterKey="name"
-                    columns={columns} 
+                }
+            />
+            {categoriesQuery.isLoading ? (
+                <TableSkeleton />
+            ) : categoriesQuery.isError ? (
+                <div className="rounded-lg border bg-card">
+                    <ErrorState
+                        title="Couldn't load categories"
+                        error={categoriesQuery.error}
+                        onRetry={() => categoriesQuery.refetch()}
+                    />
+                </div>
+            ) : (
+                <DataTable
+                    searchKeys={["name"]}
+                    searchPlaceholder="Search categories"
+                    columns={columns}
                     data={categories}
                     onDelete={(row) => {
                         const ids = row.map((r) => r.original.id);
                         deleteCategories.mutate({ ids });
                     }}
+                    deleteDescription={(count) =>
+                        `${count === 1 ? "This category" : `These ${count} categories`} will be deleted. Their transactions will become uncategorized.`
+                    }
                     disabled={isDisabled}
-                    />
-                </CardContent>
-            </Card>
+                    emptyState={
+                        <div className="rounded-lg border border-dashed bg-card">
+                            <EmptyState
+                                icon={Tags}
+                                title="No categories yet"
+                                description="Create categories like Food, Rent or Travel to see where your money goes."
+                                action={
+                                    <Button onClick={newCategory.onOpen}>
+                                        <Plus className="size-4" />
+                                        New category
+                                    </Button>
+                                }
+                            />
+                        </div>
+                    }
+                />
+            )}
         </div>
     );
 };

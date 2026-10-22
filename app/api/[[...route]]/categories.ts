@@ -1,16 +1,31 @@
 import { Hono } from "hono";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { createId } from "@paralleldrive/cuid2";
-import { categories, insertCategorySchema } from "@/db/schema";
+import { categories, nameSchema } from "@/db/schema";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-//import { ZodType } from "zod/v4";
 
-const createCategorySchema = insertCategorySchema.pick({
-    name: true,
-});
+// Names are unique per user, case-insensitively. Enforced in the app layer;
+// a concurrent duplicate is possible but harmless (no unique index yet).
+const nameTaken = async (userId: string, name: string, excludeId?: string) => {
+    const [existing] = await db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(
+            and(
+                eq(categories.userId, userId),
+                sql`lower(${categories.name}) = lower(${name})`,
+                excludeId ? ne(categories.id, excludeId) : undefined,
+            ),
+        )
+        .limit(1);
+
+    return !!existing;
+};
+
+const DUPLICATE_ERROR = "A category with this name already exists";
 
 const app = new Hono()
     .get(
@@ -29,7 +44,8 @@ const app = new Hono()
                     name: categories.name,
                 })
                 .from(categories)
-                .where(eq(categories.userId, auth.userId));
+                .where(eq(categories.userId, auth.userId))
+                .orderBy(categories.name);
 
             return c.json({ data });
         })
@@ -76,7 +92,7 @@ const app = new Hono()
         clerkMiddleware(),
         zValidator(
             "json",
-            createCategorySchema as unknown as z.ZodType
+            nameSchema
         ),
         async (c) => {
             const auth = getAuth(c);
@@ -84,6 +100,10 @@ const app = new Hono()
 
             if (!auth?.userId) {
                 return c.json({ error: "unauthorized" }, 401);
+            }
+
+            if (await nameTaken(auth.userId, values.name)) {
+                return c.json({ error: DUPLICATE_ERROR }, 409);
             }
 
             const [data] = await db.insert(categories).values({
@@ -137,7 +157,7 @@ const app = new Hono()
         ),
         zValidator(
             "json",
-            createCategorySchema as unknown as z.ZodType
+            nameSchema
         ),
         async (c) => {
             const auth = getAuth(c);
@@ -152,9 +172,13 @@ const app = new Hono()
                 return c.json({ error: "Unauthorized" }, 401);
             }
 
+            if (await nameTaken(auth.userId, values.name, id)) {
+                return c.json({ error: DUPLICATE_ERROR }, 409);
+            }
+
             const [data] = await db
                 .update(categories)
-                .set(values)
+                .set({ name: values.name })
                 .where(
                     and(
                         eq(categories.userId, auth.userId),

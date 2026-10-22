@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { insertCategorySchema } from "@/db/schema";
+import { nameSchema } from "@/db/schema";
 import {
     Form,
     FormControl,
@@ -15,9 +15,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 
-const formSchema = insertCategorySchema.pick({
-    name: true,
-}) as unknown as z.ZodType<any, any, any>;
+const formSchema = nameSchema;
 
 type FormValues = z.input<typeof formSchema>;
 
@@ -53,7 +51,8 @@ export const CategoryForm = ({
         <Form {...form}>
             <form 
                 onSubmit={form.handleSubmit(handleSubmit)} 
-                className="space-y-4 px-6 pt-4">
+                className="space-y-4 px-4 pb-6"
+                noValidate>
                 <FormField 
                 name ="name"
                 control={form.control}
@@ -66,13 +65,15 @@ export const CategoryForm = ({
                             <Input 
                                 disabled={disabled}
                                 placeholder="e.g. Food, Travel, etc"
+                                autoComplete="off"
                                 {...field}
                             />
                         </FormControl>
+                        <FormMessage />
                     </FormItem>
                 )}
                 />
-                <Button className="w-full" disabled={disabled}>
+                <Button type="submit" className="w-full" disabled={disabled}>
                     {id ? "Save changes" : "Create category"}
                 </Button>
                 {!!id && (
@@ -80,10 +81,10 @@ export const CategoryForm = ({
                     type="button"
                     disabled={disabled}
                     onClick={handleDelete}
-                    className="w-full"
+                    className="w-full text-destructive hover:text-destructive"
                     variant="outline"
                     >
-                    <Trash className="size-4 mr-2" />
+                    <Trash className="size-4" />
                     Delete category
                     </Button>
                 )}

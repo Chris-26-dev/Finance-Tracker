@@ -6,7 +6,7 @@ import { useEditCategory } from "@/features/categories/api/use-edit-category";
 import { useDeleteCategory } from "@/features/categories/api/use-delete-category";
 
 import { z } from "zod";
-import { insertCategorySchema } from "@/db/schema";
+import { nameSchema } from "@/db/schema";
 import { useConfirm } from "@/hooks/use-confirm";
 
 import {
@@ -18,9 +18,7 @@ import {
 } from "@/components/ui/sheet";
 
 
-const formSchema = insertCategorySchema.pick({
-    name: true,
-}) as unknown as z.ZodType<any, any, any>;
+const formSchema = nameSchema;
 
 type FormValues = z.input<typeof formSchema>;
 
@@ -29,7 +27,7 @@ export const EditCategorySheet = () => {
 
     const [ConfirmDialog, confirm] = useConfirm(
         "Are you sure?",
-        "You are about to delete this category."
+        "This category will be deleted. Its transactions will become uncategorized."
     )
 
     const categoryQuery = useGetCategory(id);
@@ -83,7 +81,7 @@ export const EditCategorySheet = () => {
                 </SheetHeader>
                 {isLoading
                     ? (
-                        <div className="absolute inset-0 flex items-center">
+                        <div className="absolute inset-0 flex items-center justify-center">
                             <Loader2 className="size-4 text-muted-foreground animate-spin" />
                         </div>
                     ) : (

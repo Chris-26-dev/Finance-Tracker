@@ -3,8 +3,9 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<typeof client.api.accounts.$post>;
+type ResponseType = InferResponseType<typeof client.api.accounts.$post, 200>;
 type RequestType = InferRequestType<typeof client.api.accounts.$post>["json"];
 
 export const useCreateAccount = () => {
@@ -17,14 +18,14 @@ export const useCreateAccount = () => {
     >({
         mutationFn: async (json) => {
             const response = await client.api.accounts.$post({ json });
-            return await response.json();
+            return await handleResponse(response);
         },
         onSuccess: () => {
             toast.success("Account created")
             queryClient.invalidateQueries({ queryKey: ["accounts"] });
         },
-        onError: () => {
-            toast.error("Failed to create account")
+        onError: (error) => {
+            toast.error("Failed to create account", { description: error.message })
         },
     });
 

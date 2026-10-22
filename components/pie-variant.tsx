@@ -1,6 +1,7 @@
-import { 
+"use client";
+
+import {
     Cell,
-    Legend,
     Pie,
     PieChart,
     ResponsiveContainer,
@@ -8,74 +9,65 @@ import {
 } from "recharts";
 
 import { formatPercentage } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-currency";
 import { CategoryTooltip } from "@/components/category-tooltip";
 
-const COLORS = ["#0062FF", "#12C6FF", "#FF647F", "#FF9354" ];
+export type CategorySlice = {
+    name: string;
+    value: number;
+    fill: string;
+};
 
 type Props = {
-    data: {
-        name: string;
-        value: number;
-    }[];
+    data: CategorySlice[];
 };
 
 export const PieVariant = ({ data }: Props) => {
+    const formatCurrency = useFormatCurrency();
+    const total = data.reduce((sum, slice) => sum + slice.value, 0);
+
     return (
-        <ResponsiveContainer width="100%" height={350}>
-            <PieChart>
-                <Legend 
-                    layout="horizontal"
-                    verticalAlign="bottom"
-                    align="right"
-                    iconType="circle"
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    content={({ payload }: any) => {
-                        return (
-                            <ul className="flex flex-col space-y-2">
-                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                {payload.map((entry: any, index: number) => (
-                                    <li 
-                                        key={`item-${index}`}
-                                        className="flex items-center space-x-2"
-                                    >
-                                        <span
-                                            className="size-2 rounded-full"
-                                            style={{ backgroundColor: entry.color }}
-                                        />
-                                        <div className="space-x-1">
-                                            <span className="text-sm text-muted-foreground">
-                                                {entry.value}
-                                            </span>
-                                            <span className="text-sm">
-                                                {formatPercentage(entry.payload.percent * 100)}
-                                            </span>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )
-                    }}
-                />
-                <Tooltip content={<CategoryTooltip />}/>
-                <Pie
-                    data={data}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    innerRadius={60}
-                    paddingAngle={2}
-                    fill="#8884d8"
-                    dataKey="value"
-                    labelLine={false}
-                >
-                    {data.map((_entry, index) => (
-                        <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                        />
-                    ))}
-                </Pie>
-            </PieChart>
-        </ResponsiveContainer>
+        <div className="flex flex-col items-center gap-6 sm:flex-row lg:flex-col 2xl:flex-row">
+            <div className="relative h-[220px] w-full max-w-[220px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Tooltip content={<CategoryTooltip />}/>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            innerRadius={72}
+                            paddingAngle={2}
+                            dataKey="value"
+                            nameKey="name"
+                            stroke="var(--card)"
+                            strokeWidth={2}
+                            labelLine={false}
+                        >
+                            {data.map((slice) => (
+                                <Cell key={slice.name} fill={slice.fill} />
+                            ))}
+                        </Pie>
+                    </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xs text-muted-foreground">Total spent</span>
+                    <span className="text-lg font-semibold tabular-nums">{formatCurrency(total, { compact: total >= 100_000 })}</span>
+                </div>
+            </div>
+            <ul className="w-full space-y-2.5">
+                {data.map((slice) => (
+                    <li key={slice.name} className="flex items-center gap-3 text-sm">
+                        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: slice.fill }} />
+                        <span className="min-w-0 flex-1 truncate">{slice.name}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                            {formatPercentage(total ? (slice.value / total) * 100 : 0)}
+                        </span>
+                        <span className="w-24 text-right font-medium tabular-nums">{formatCurrency(slice.value)}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
     )
 }

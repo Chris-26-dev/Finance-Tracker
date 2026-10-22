@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 import { convertAmountFromMiliunits } from "@/lib/utils";
 
-//This is Hook and type safety
 export const useGetTransaction = (id?: string) => {
     const query = useQuery({
         enabled: !!id,
@@ -13,11 +13,7 @@ export const useGetTransaction = (id?: string) => {
                 param: { id },
             });
 
-            if (!response.ok){
-                throw new Error("Failed to fetch transaction");
-            }
-
-            const { data } = await response.json();
+            const { data } = await handleResponse(response);
             return {
                 ...data,
                 amount: convertAmountFromMiliunits(data.amount),

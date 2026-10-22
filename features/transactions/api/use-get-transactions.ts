@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
+import { convertAmountFromMiliunits } from "@/lib/utils";
 
-//This is Hook and type safety
 export const useGetTransactions = () => {
     const params = useSearchParams();
     const from = params.get("from") || "";
@@ -21,12 +22,12 @@ export const useGetTransactions = () => {
                 },
             });
 
-            if (!response.ok){
-                throw new Error("Failed to fetch transactions");
-            }
-
-            const { data } = await response.json();
-            return data;
+            const { data } = await handleResponse(response);
+            // Amounts are stored in miliunits; the UI works in currency units.
+            return data.map((transaction) => ({
+                ...transaction,
+                amount: convertAmountFromMiliunits(transaction.amount),
+            }));
         },
     });
 

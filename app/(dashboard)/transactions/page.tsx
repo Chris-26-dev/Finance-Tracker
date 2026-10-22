@@ -1,39 +1,41 @@
 "use client";
-//Since this is a hook 
+
+import { useState } from "react";
+import { format } from "date-fns";
+import { ArrowLeftRight, Plus, Wallet } from "lucide-react";
+import { toast } from "sonner";
+
 import { useNewTransaction } from "@/features/transactions/hooks/use-new-transaction";
+import { useOpenTransaction } from "@/features/transactions/hooks/use-open-transaction";
 import { useGetTransactions } from "@/features/transactions/api/use-get-transactions";
 import { useBulkDeleteTransactions } from "@/features/transactions/api/use-bulk-delete-transactions";
 import { useBulkCreateTransactions } from "@/features/transactions/api/use-bulk-create-transactions";
-
+import { useGetAccounts } from "@/features/accounts/api/use-get-accounts";
+import { useNewAccount } from "@/features/accounts/hooks/use-new-account";
 import { useSelectAccount } from "@/features/accounts/hooks/use-select-account";
 
-import { transactions as transactionSchema } from "@/db/schema";
+import { ImportRow } from "@/lib/csv-import";
+import { parseDayParam, toLocalCalendarDate } from "@/lib/utils";
 import { DataTable } from "@/components/data-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus } from "lucide-react";
-import { 
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle
- } from "@/components/ui/card";
+import { Amount } from "@/components/amount";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { PageHeader } from "@/components/page-header";
+import { TableSkeleton } from "@/components/table-skeleton";
 
 import { columns } from "./columns";
-import { useState } from "react";
-import { UploadButton } from "./upload-button";
+import { CsvParseResult, UploadButton } from "./upload-button";
 import { ImportCard } from "./import-card";
-import { toast } from "sonner";
 
 enum VARIANTS {
     LIST = "LIST",
     IMPORT = "IMPORT"
 };
 
-const INITIAL_IMPORT_RESULTS = {
+const INITIAL_IMPORT_RESULTS: CsvParseResult = {
     data: [],
     errors: [],
-    meta: {},
 };
 
 const TransactionsPage = () => {
@@ -41,8 +43,7 @@ const TransactionsPage = () => {
     const [variant, setVariant] = useState<VARIANTS>(VARIANTS.LIST);
     const [importResults, setImportResults] = useState(INITIAL_IMPORT_RESULTS);
 
-    const onUpload = (results: typeof INITIAL_IMPORT_RESULTS) => {
-        console.log({ results });
+    const onUpload = (results: CsvParseResult) => {
         setImportResults(results);
         setVariant(VARIANTS.IMPORT);
     };
@@ -53,27 +54,36 @@ const TransactionsPage = () => {
     }
 
     const newTransaction = useNewTransaction();
+    const openTransaction = useOpenTransaction();
+    const newAccount = useNewAccount();
     const createTransactions = useBulkCreateTransactions();
     const deleteTransactions = useBulkDeleteTransactions();
     const transactionsQuery = useGetTransactions();
+    const accountsQuery = useGetAccounts();
     const transactions = transactionsQuery.data || [];
 
     const isDisabled =
         transactionsQuery.isLoading ||
         deleteTransactions.isPending;
 
-    const onSubmitImport = async (
-        values: typeof transactionSchema.$inferInsert[],
-    ) => {
+    const hasNoAccounts = accountsQuery.isSuccess && accountsQuery.data.length === 0;
+
+    const onSubmitImport = async (rows: ImportRow[]) => {
         const accountId = await confirm();
 
         if(!accountId) {
-            return toast.error('Please select an account to continue.');
+            return toast.info("Import cancelled", {
+                description: "Choose an account to import these transactions into.",
+            });
         }
 
-        const data = values.map((value) => ({
-            ...value,
-            accountId: accountId as string,
+        const data = rows.map((row) => ({
+            date: parseDayParam(row.date)!,
+            amount: row.amount,
+            payee: row.payee,
+            notes: row.notes,
+            categoryId: null,
+            accountId,
         }));
 
         createTransactions.mutate(data, {
@@ -83,23 +93,6 @@ const TransactionsPage = () => {
         });
     };
 
-    if (transactionsQuery.isLoading){
-        return (
-        <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
-            <Card className="mt-5 border-none drop-shadow-sm">
-                <CardHeader >
-                    <Skeleton className="h-8 w-48"/>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[500px] w-full flex items-center justify-center">
-                        <Loader2 className="size-6 text-slate-300 animate-spin"/>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-        )
-    }
-
     if (variant === VARIANTS.IMPORT) {
         return (
             <>
@@ -108,41 +101,102 @@ const TransactionsPage = () => {
                     data={importResults.data}
                     onCancel={onCancelImport}
                     onSubmit={onSubmitImport}
+                    disabled={createTransactions.isPending}
                 />
             </>
         )
     }
 
-    return (
-        <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
-            <Card className="mt-5 border-none drop-shadow-sm">
-                <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <CardTitle className="text-xl line-clamp-1">
-                        Transaction History
-                    </CardTitle>
-                    <div className="flex flex-ol lg:flex-row gap-y-2 items-center gap-x-2">
-                    <Button onClick={newTransaction.onOpen} size="sm" className="w-full lg:w-auto">
-                        <Plus className ="size-4 mr-2" />
-                        Add new
+    const emptyState = hasNoAccounts ? (
+        <EmptyState
+            icon={Wallet}
+            title="Create an account first"
+            description="Transactions belong to an account, such as Checking or Cash."
+            action={
+                <Button onClick={newAccount.onOpen}>
+                    <Plus className="size-4" />
+                    New account
+                </Button>
+            }
+        />
+    ) : (
+        <EmptyState
+            icon={ArrowLeftRight}
+            title="No transactions in this period"
+            description="Add one manually, import a CSV from your bank, or widen the date range."
+            action={
+                <>
+                    <Button onClick={newTransaction.onOpen}>
+                        <Plus className="size-4" />
+                        Add transaction
                     </Button>
-                    <UploadButton
-                        onUpload={onUpload}
+                    <UploadButton onUpload={onUpload} />
+                </>
+            }
+        />
+    );
+
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                description="Every income and expense in the selected period."
+                actions={
+                    <>
+                        <UploadButton onUpload={onUpload} disabled={hasNoAccounts} />
+                        <Button onClick={newTransaction.onOpen}>
+                            <Plus className="size-4" />
+                            Add transaction
+                        </Button>
+                    </>
+                }
+            />
+            {transactionsQuery.isLoading ? (
+                <TableSkeleton rows={8} />
+            ) : transactionsQuery.isError ? (
+                <div className="rounded-lg border bg-card">
+                    <ErrorState
+                        title="Couldn't load transactions"
+                        error={transactionsQuery.error}
+                        onRetry={() => transactionsQuery.refetch()}
                     />
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <DataTable 
-                    filterKey="payee"
-                    columns={columns} 
+                </div>
+            ) : (
+                <DataTable
+                    searchKeys={["payee", "category", "account", "notes"]}
+                    searchPlaceholder="Search payee, category, notes…"
+                    columns={columns}
                     data={transactions}
                     onDelete={(row) => {
                         const ids = row.map((r) => r.original.id);
                         deleteTransactions.mutate({ ids });
                     }}
+                    deleteDescription={(count) =>
+                        `${count === 1 ? "This transaction" : `These ${count} transactions`} will be permanently deleted.`
+                    }
                     disabled={isDisabled}
-                    />
-                </CardContent>
-            </Card>
+                    emptyState={<div className="rounded-lg border border-dashed bg-card">{emptyState}</div>}
+                    renderMobileRow={(row) => (
+                        <button
+                            type="button"
+                            onClick={() => openTransaction.onOpen(row.original.id)}
+                            className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
+                        >
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium">{row.original.payee}</p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                    {row.original.category ?? "Uncategorized"} · {row.original.account}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <Amount value={row.original.amount} className="block text-sm" />
+                                <span className="text-xs text-muted-foreground">
+                                    {format(toLocalCalendarDate(row.original.date), "MMM d")}
+                                </span>
+                            </div>
+                        </button>
+                    )}
+                />
+            )}
         </div>
     );
 };

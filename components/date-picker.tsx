@@ -16,17 +16,25 @@ type Props = {
     value?: Date;
     onChange?: SelectSingleEventHandler;
     disabled?: boolean;
+    id?: string;
+    "aria-describedby"?: string;
+    "aria-invalid"?: boolean;
 };
 
 export const DatePicker = ({
     value,
     onChange,
     disabled,
+    ...triggerProps
 }: Props) => {
+    const [open, setOpen] = React.useState(false);
+
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <Button
+                    {...triggerProps}
+                    type="button"
                     disabled={disabled}
                     variant="outline"
                     className={cn(
@@ -34,15 +42,19 @@ export const DatePicker = ({
                         !value && "text-muted-foreground",
                     )}
                 >
-                    <CalendarIcon className="size-4 mr-2" />
+                    <CalendarIcon className="size-4" />
                     {value ? format(value, "PPP") : <span>Pick a date</span>}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent>
+            <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                     mode="single"
                     selected={value}
-                    onSelect={onChange}
+                    onSelect={(day, ...rest) => {
+                        onChange?.(day, ...rest);
+                        if (day) setOpen(false);
+                    }}
+                    defaultMonth={value}
                     disabled={disabled}
                     initialFocus
                 />

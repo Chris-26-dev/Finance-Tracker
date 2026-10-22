@@ -1,32 +1,43 @@
-import { 
+"use client";
+
+import {
     PolarAngleAxis,
     PolarGrid,
     PolarRadiusAxis,
     Radar,
     RadarChart,
-    ResponsiveContainer
+    ResponsiveContainer,
+    Tooltip
 } from "recharts";
 
+import { useFormatCurrency } from "@/hooks/use-currency";
+import { CategoryTooltip } from "@/components/category-tooltip";
+import { CategorySlice } from "@/components/pie-variant";
+
 type Props = {
-    data?: {
-        name: string;
-        value: number;
-    }[];
+    data: CategorySlice[];
 };
 
 export const RadarVariant = ({ data }: Props) => {
+    const formatCurrency = useFormatCurrency();
+
     return (
-        <ResponsiveContainer width="100%" height={350}>
+        <ResponsiveContainer width="100%" height={300}>
             <RadarChart
                 cx="50%"
                 cy="50%"
-                outerRadius="60%"
-                data={data}
+                outerRadius="65%"
+                data={data.map((slice) => ({ ...slice, fill: "var(--chart-1)" }))}
             >
-                <PolarGrid/>
-                <PolarAngleAxis style={{ fontSize: "12px" }} dataKey="name" />
-                <PolarRadiusAxis style={{ fontSize: "12px" }}/>
-                <Radar dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6}/>
+                <PolarGrid stroke="var(--border)" />
+                <PolarAngleAxis tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} dataKey="name" />
+                <PolarRadiusAxis
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                    tickFormatter={(value: number) => formatCurrency(value, { compact: true })}
+                    axisLine={false}
+                />
+                <Tooltip content={<CategoryTooltip />} />
+                <Radar dataKey="value" stroke="var(--chart-1)" strokeWidth={2} fill="var(--chart-1)" fillOpacity={0.25}/>
             </RadarChart>
         </ResponsiveContainer>
     );

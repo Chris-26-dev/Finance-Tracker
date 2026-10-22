@@ -1,22 +1,19 @@
 "use client";
-//Since this is a hook 
+
+import { Plus, Wallet } from "lucide-react";
+
 import { useNewAccount } from "@/features/accounts/hooks/use-new-account";
 import { useGetAccounts } from "@/features/accounts/api/use-get-accounts";
 import { useBulkDeleteAccounts } from "@/features/accounts/api/use-bulk-delete-accounts";
 
 import { DataTable } from "@/components/data-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus } from "lucide-react";
-import { 
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle
- } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { PageHeader } from "@/components/page-header";
+import { TableSkeleton } from "@/components/table-skeleton";
 
 import { columns } from "./columns";
-
 
 const AccountsPage = () => {
     const newAccount = useNewAccount();
@@ -28,48 +25,58 @@ const AccountsPage = () => {
         accountsQuery.isLoading ||
         deleteAccounts.isPending;
 
-    if (accountsQuery.isLoading){
-        return (
-        <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
-            <Card className="mt-5 border-none drop-shadow-sm">
-                <CardHeader >
-                    <Skeleton className="h-8 w-48"/>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[500px] w-full flex items-center justify-center">
-                        <Loader2 className="size-6 text-slate-300 animate-spin"/>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-        )
-    }
-
     return (
-        <div className="max-w-screen-2xl mx-auto w-full pb-10 -mt-24">
-            <Card className="mt-5 border-none drop-shadow-sm">
-                <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <CardTitle className="text-xl line-clamp-1">
-                        Accounts page
-                    </CardTitle>
-                    <Button onClick={newAccount.onOpen} size="sm">
-                        <Plus className ="size-4 mr-2" />
-                        Add new
+        <div className="space-y-6">
+            <PageHeader
+                description="Accounts are where your money lives, like a bank account, card or cash."
+                actions={
+                    <Button onClick={newAccount.onOpen}>
+                        <Plus className="size-4" />
+                        New account
                     </Button>
-                </CardHeader>
-                <CardContent>
-                    <DataTable 
-                    filterKey="name"
-                    columns={columns} 
+                }
+            />
+            {accountsQuery.isLoading ? (
+                <TableSkeleton />
+            ) : accountsQuery.isError ? (
+                <div className="rounded-lg border bg-card">
+                    <ErrorState
+                        title="Couldn't load accounts"
+                        error={accountsQuery.error}
+                        onRetry={() => accountsQuery.refetch()}
+                    />
+                </div>
+            ) : (
+                <DataTable
+                    searchKeys={["name"]}
+                    searchPlaceholder="Search accounts"
+                    columns={columns}
                     data={accounts}
                     onDelete={(row) => {
                         const ids = row.map((r) => r.original.id);
                         deleteAccounts.mutate({ ids });
                     }}
+                    deleteDescription={(count) =>
+                        `${count === 1 ? "This account" : `These ${count} accounts`} and all of their transactions will be permanently deleted.`
+                    }
                     disabled={isDisabled}
-                    />
-                </CardContent>
-            </Card>
+                    emptyState={
+                        <div className="rounded-lg border border-dashed bg-card">
+                            <EmptyState
+                                icon={Wallet}
+                                title="No accounts yet"
+                                description="Create an account to start recording transactions."
+                                action={
+                                    <Button onClick={newAccount.onOpen}>
+                                        <Plus className="size-4" />
+                                        New account
+                                    </Button>
+                                }
+                            />
+                        </div>
+                    }
+                />
+            )}
         </div>
     );
 };

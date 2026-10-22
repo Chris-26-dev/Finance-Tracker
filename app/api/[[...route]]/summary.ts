@@ -2,11 +2,17 @@ import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { subDays, parse, differenceInDays } from "date-fns";
 import { db } from "@/db/drizzle";
 import { and, desc, eq, gte, lt, lte, sql, sum } from "drizzle-orm";
 import { accounts, categories, transactions } from "@/db/schema";
-import { calculatePercentageChange, fillMissingDays } from "@/lib/utils";
+import {
+    calculatePercentageChange,
+    fillMissingDays,
+    resolveDateRange,
+    UNCATEGORIZED_LABEL,
+} from "@/lib/utils";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const app = new Hono()
     .get(
@@ -28,19 +34,19 @@ const app = new Hono()
                 return c.json({ error: "Unauthorized" }, 401);
             }
 
-            const defaultTo = new Date();
-            const defaultFrom = subDays(defaultTo, 30);
+            const range = resolveDateRange(from, to);
 
-            const startDate = from
-                ? parse(from, "yyyy-MM-dd", new Date())
-                : defaultFrom;
-            const endDate = to
-                ? parse(to, "yyyy-MM-dd", new Date())
-                : defaultTo;
+            if (!range) {
+                return c.json({ error: "Invalid date range" }, 400);
+            }
 
-            const periodLength = differenceInDays(endDate, startDate) + 1;
-            const lastPeriodStart = subDays(startDate, periodLength);
-            const lastPeriodEnd = subDays(endDate, periodLength);
+            const startDate = range.start;
+            const endDate = range.end;
+
+            // Compare against the immediately preceding period of equal length.
+            const periodMs = range.days * DAY_MS;
+            const lastPeriodStart = new Date(startDate.getTime() - periodMs);
+            const lastPeriodEnd = new Date(endDate.getTime() - periodMs);
 
             async function fetchFinancialData(
                 userId: string,
@@ -49,9 +55,9 @@ const app = new Hono()
             ) {
                 return await db
                     .select({
-                        income: sql`SUM(CASE WHEN ${transactions.amount} >= 0 THEN ${transactions.amount} ELSE 0 END)`.mapWith(Number),
-                        expenses: sql`SUM(CASE WHEN ${transactions.amount} < 0 THEN ${transactions.amount} ELSE 0 END)`.mapWith(Number),
-                        remaining: sum(transactions.amount).mapWith(Number),
+                        income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.amount} >= 0 THEN ${transactions.amount} ELSE 0 END), 0)`.mapWith(Number),
+                        expenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.amount} < 0 THEN ${transactions.amount} ELSE 0 END), 0)`.mapWith(Number),
+                        remaining: sql<number>`COALESCE(${sum(transactions.amount)}, 0)`.mapWith(Number),
                     })
                     .from(transactions)
                     .innerJoin(
@@ -85,19 +91,21 @@ const app = new Hono()
                 currentPeriod.income,
                 lastPeriod.income,
             );
+            // Expenses are negative; report the change in how much was spent,
+            // so a positive value always means "spent more".
             const expensesChange = calculatePercentageChange(
-                currentPeriod.expenses,
-                lastPeriod.expenses,
+                Math.abs(currentPeriod.expenses),
+                Math.abs(lastPeriod.expenses),
             );
             const remainingChange = calculatePercentageChange(
                 currentPeriod.remaining,
                 lastPeriod.remaining,
             );
 
-            const category = await db
+            const categoryRows = await db
                 .select({
                     name: categories.name,
-                    value: sql`SUM(ABS(${transactions.amount}))`.mapWith(Number),
+                    value: sql<number>`SUM(ABS(${transactions.amount}))`.mapWith(Number),
                 })
                 .from(transactions)
                 .innerJoin(
@@ -107,12 +115,12 @@ const app = new Hono()
                         accounts.id,
                     ),
                 )
-                .innerJoin(
+                .leftJoin(
                     categories,
-                    eq(
-                        transactions.categoryId,
-                        categories.id
-                    )
+                    and(
+                        eq(transactions.categoryId, categories.id),
+                        eq(categories.userId, auth.userId),
+                    ),
                 )
                 .where(
                     and(
@@ -128,12 +136,18 @@ const app = new Hono()
                     sql`SUM(ABS(${transactions.amount}))`
                 ));
 
+            // Expenses without a (visible) category are grouped under one label.
+            const category = categoryRows.map((row) => ({
+                name: row.name ?? UNCATEGORIZED_LABEL,
+                value: row.value,
+            }));
+
             const topCategories = category.slice(0, 3);
             const otherCategories = category.slice(3);
             const otherSum = otherCategories
                 .reduce((sum, current) => sum + current.value, 0);
 
-            const finalCategories = topCategories;
+            const finalCategories = [...topCategories];
             if (otherCategories.length > 0) {
                 finalCategories.push({
                     name: "Other",
@@ -141,11 +155,13 @@ const app = new Hono()
                 });
             }
 
+            const day = sql<string>`to_char(${transactions.date}, 'YYYY-MM-DD')`;
+
             const activeDays = await db
                 .select({
-                    date: transactions.date,
-                    income: sql`SUM(CASE WHEN ${transactions.amount} >= 0 THEN ${transactions.amount} ELSE 0 END)`.mapWith(Number),
-                    expenses: sql`SUM(CASE WHEN ${transactions.amount} < 0 THEN ABS(${transactions.amount}) ELSE 0 END)`.mapWith(Number),
+                    date: day,
+                    income: sql<number>`SUM(CASE WHEN ${transactions.amount} >= 0 THEN ${transactions.amount} ELSE 0 END)`.mapWith(Number),
+                    expenses: sql<number>`SUM(CASE WHEN ${transactions.amount} < 0 THEN ABS(${transactions.amount}) ELSE 0 END)`.mapWith(Number),
                 })
                 .from(transactions)
                 .innerJoin(
@@ -163,14 +179,14 @@ const app = new Hono()
                         lte(transactions.date, endDate)
                     )
                 )
-                .groupBy(transactions.date)
-                .orderBy(transactions.date)
-                
-                const days = fillMissingDays(
-                    activeDays,
-                    startDate,
-                    endDate,
-                );
+                .groupBy(day)
+                .orderBy(day);
+
+            const days = fillMissingDays(
+                activeDays,
+                startDate,
+                endDate,
+            );
 
 
             return c.json({

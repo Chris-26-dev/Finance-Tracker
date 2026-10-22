@@ -2,10 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 import { convertAmountFromMiliunits } from "@/lib/utils";
-import { categories } from "@/db/schema";
 
-//This is Hook and type safety
 export const useGetSummary = () => {
     const params = useSearchParams();
     const from = params.get("from") || "";
@@ -23,11 +22,7 @@ export const useGetSummary = () => {
                 },
             });
 
-            if (!response.ok){
-                throw new Error("Failed to fetch summary");
-            }
-
-            const { data } = await response.json();
+            const { data } = await handleResponse(response);
             return {
                 ...data,
                 incomeAmount: convertAmountFromMiliunits(data.incomeAmount),

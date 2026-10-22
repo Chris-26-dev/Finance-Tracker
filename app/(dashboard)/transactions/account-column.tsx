@@ -11,13 +11,14 @@ export const AccountColumn = ({
 }: Props) => {
     const {onOpen: onOpenAccount} = useOpenAccount();
 
-    const onClick = () => {
-        onOpenAccount(accountId)
-    }
-
     return (
-        <div onClick={onClick} className="flex items-center cursor-pointer hover:underline">
+        <button
+            type="button"
+            onClick={() => onOpenAccount(accountId)}
+            className="max-w-40 truncate rounded-sm text-left text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            aria-label={`Edit account ${account}`}
+        >
             {account}
-        </div>
+        </button>
     );
 };

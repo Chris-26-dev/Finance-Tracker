@@ -55,12 +55,41 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
     }),
 }));
 
+// Amounts are stored as integer miliunits in a 32-bit column, so keep a
+// safe margin below 2^31 (= 2,000,000.000 in currency units).
+export const MAX_AMOUNT_MILIUNITS = 2_000_000_000;
+export const MAX_NAME_LENGTH = 64;
+export const MAX_PAYEE_LENGTH = 200;
+export const MAX_NOTES_LENGTH = 1000;
+export const MAX_BULK_TRANSACTIONS = 5000;
+
+export const nameSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(MAX_NAME_LENGTH, `Name must be ${MAX_NAME_LENGTH} characters or fewer`),
+});
+
 export const insertTransactionSchema = z.object({
   id: z.string().optional(), // Optional if auto-generated
-  amount: z.number().int(),
-  payee: z.string(),
-  notes: z.string().optional().nullable(),
-  date: z.coerce.date(),
-  accountId: z.string(),
-  categoryId: z.string().optional().nullable(),
+  amount: z
+    .number()
+    .int()
+    .refine((value) => value !== 0, "Amount cannot be zero")
+    .refine(
+      (value) => Math.abs(value) <= MAX_AMOUNT_MILIUNITS,
+      "Amount is too large",
+    ),
+  payee: z
+    .string()
+    .trim()
+    .min(1, "Payee is required")
+    .max(MAX_PAYEE_LENGTH),
+  notes: z.string().trim().max(MAX_NOTES_LENGTH).optional().nullable(),
+  date: z.coerce
+    .date()
+    .refine((value) => !Number.isNaN(value.getTime()), "Invalid date"),
+  accountId: z.string().min(1, "Account is required"),
+  categoryId: z.string().min(1).optional().nullable(),
 });

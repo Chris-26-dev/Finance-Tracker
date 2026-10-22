@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { IMPORT_FIELDS, REQUIRED_IMPORT_FIELDS } from "@/lib/csv-import";
 import {
     Select,
     SelectContent,
@@ -9,6 +10,7 @@ import {
 
 type Props = {
     columnIndex: number,
+    header: string;
     selectedColumns: Record<string, string | null>;
     onChange: (
         columnIndex: number,
@@ -16,49 +18,51 @@ type Props = {
     ) => void;
 };
 
-const options = [
-    "amount",
-    "payee",
-    //"notes",
-    "date",
-];
-
 export const TableHeadSelect = ({
     columnIndex,
+    header,
     selectedColumns,
     onChange,
 }: Props) => {
     const currentSelection = selectedColumns[`column_${columnIndex}`];
 
     return (
-        <Select
-            value={currentSelection || ""}
-            onValueChange={(value) => onChange(columnIndex, value)}
-        >
-            <SelectTrigger
-                className={cn("focus:ring-offset-0 focus:ring-transparent outline-none border-none bg-transparent capitalize",
-                    currentSelection && "text-blue-500",
-                )}
+        <div className="flex flex-col gap-1 py-2">
+            <span className="text-xs font-normal text-muted-foreground truncate max-w-40" title={header}>
+                {header || `Column ${columnIndex + 1}`}
+            </span>
+            <Select
+                value={currentSelection || ""}
+                onValueChange={(value) => onChange(columnIndex, value)}
             >
-                <SelectValue placeholder="Skip" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="skip">Skip</SelectItem>
-                {options.map((option, index) => {
-                    const disabled = Object.values(selectedColumns).includes(option)
-                        && selectedColumns[`column_${columnIndex}`] !== option;
-                    return (
-                        <SelectItem
-                            key={index}
-                            value={option}
-                            disabled={disabled}
-                            className="capitalize"
-                        >
-                            {option}
-                        </SelectItem>
-                    )
-                })}
-            </SelectContent>
-        </Select>
+                <SelectTrigger
+                    size="sm"
+                    aria-label={`Map column ${header || columnIndex + 1}`}
+                    className={cn("min-w-28 capitalize",
+                        currentSelection && "border-primary text-primary",
+                    )}
+                >
+                    <SelectValue placeholder="Skip" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="skip">Skip</SelectItem>
+                    {IMPORT_FIELDS.map((option) => {
+                        const disabled = Object.values(selectedColumns).includes(option)
+                            && selectedColumns[`column_${columnIndex}`] !== option;
+                        const required = (REQUIRED_IMPORT_FIELDS as readonly string[]).includes(option);
+                        return (
+                            <SelectItem
+                                key={option}
+                                value={option}
+                                disabled={disabled}
+                                className="capitalize"
+                            >
+                                {option}{required ? "" : " (optional)"}
+                            </SelectItem>
+                        )
+                    })}
+                </SelectContent>
+            </Select>
+        </div>
     );
 };

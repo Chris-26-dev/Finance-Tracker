@@ -3,7 +3,7 @@ import { AccountForm } from "@/features/accounts/components/account-form";
 import { useCreateAccount } from "@/features/accounts/api/use-create-account";
 
 import { z } from "zod";
-import { insertAccountSchema } from "@/db/schema";
+import { nameSchema } from "@/db/schema";
 
 import { 
     Sheet,
@@ -13,9 +13,7 @@ import {
     SheetTitle
 } from "@/components/ui/sheet";
 
-const formSchema = insertAccountSchema.pick({
-    name: true,
-}) as unknown as z.ZodType<any, any, any>;
+const formSchema = nameSchema;
 
 type FormValues = z.input<typeof formSchema>;
 

@@ -12,6 +12,7 @@ import { useCreateAccount } from "@/features/accounts/api/use-create-account";
 import { z } from "zod";
 import { insertTransactionSchema } from "@/db/schema";
 import { useConfirm } from "@/hooks/use-confirm";
+import { toLocalCalendarDate } from "@/lib/utils";
 
 import {
     Sheet,
@@ -33,7 +34,7 @@ export const EditTransactionSheet = () => {
 
     const [ConfirmDialog, confirm] = useConfirm(
         "Are you sure?",
-        "You are about to delete this transaction."
+        "This transaction will be permanently deleted."
     )
 
     const transactionQuery = useGetTransaction(id);
@@ -42,9 +43,10 @@ export const EditTransactionSheet = () => {
 
     const categoryQuery = useGetCategories();
     const categoryMutation = useCreateCategory();
-    const onCreateCategory = (name: string) => categoryMutation.mutate({
-        name
-    });
+    const onCreateCategory = (name: string) => categoryMutation
+        .mutateAsync({ name: name.trim() })
+        .then((response) => response.data.id)
+        .catch(() => undefined);
     const categoryOptions = (categoryQuery.data ?? []).map((category) => ({
         label: category.name,
         value: category.id,
@@ -52,9 +54,10 @@ export const EditTransactionSheet = () => {
 
     const accountQuery = useGetAccounts();
     const accountMutation = useCreateAccount();
-    const onCreateAccount = (name: string) => accountMutation.mutate({
-        name
-    });
+    const onCreateAccount = (name: string) => accountMutation
+        .mutateAsync({ name: name.trim() })
+        .then((response) => response.data.id)
+        .catch(() => undefined);
     const accountOptions = (accountQuery.data ?? []).map((account) => ({
         label: account.name,
         value: account.id,
@@ -96,9 +99,7 @@ export const EditTransactionSheet = () => {
         accountId: transactionQuery.data.accountId,
         categoryId: transactionQuery.data.categoryId,
         amount: transactionQuery.data.amount.toString(),
-        date: transactionQuery.data.date 
-            ? new Date(transactionQuery.data.date) 
-            : new Date(),
+        date: toLocalCalendarDate(transactionQuery.data.date),
         payee: transactionQuery.data.payee,
         notes: transactionQuery.data.notes,
     } : {
@@ -125,7 +126,7 @@ export const EditTransactionSheet = () => {
                     </SheetHeader>
                     {isLoading
                         ? (
-                            <div className="absolute inset-0 flex items-center">
+                            <div className="absolute inset-0 flex items-center justify-center">
                                 <Loader2 className="size-4 text-muted-foreground animate-spin" />
                             </div>
                         ) : (

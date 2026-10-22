@@ -1,19 +1,18 @@
 "use client"
 
-import { InferResponseType } from "hono";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox"
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
-import { client } from "@/lib/hono";
-import { Actions } from "@/app/(dashboard)/transactions/actions";
 import { format } from "date-fns";
-import { formatCurrency } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+
+import { Checkbox } from "@/components/ui/checkbox"
+import { SortableHeader } from "@/components/sortable-header";
+import { Amount } from "@/components/amount";
+import { Actions } from "@/app/(dashboard)/transactions/actions";
+import { useGetTransactions } from "@/features/transactions/api/use-get-transactions";
+import { toLocalCalendarDate } from "@/lib/utils";
 import { AccountColumn } from "./account-column";
 import { CategoryColumn } from "./category-column";
 
-export type ResponseType = InferResponseType<typeof client.api.transactions.$get, 200>["data"][0];
+export type ResponseType = NonNullable<ReturnType<typeof useGetTransactions>["data"]>[number];
 
 export const columns: ColumnDef<ResponseType>[] = [
   {
@@ -25,14 +24,14 @@ export const columns: ColumnDef<ResponseType>[] = [
           (table.getIsSomePageRowsSelected() && "indeterminate")
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
+        aria-label="Select all on this page"
       />
     ),
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
+        aria-label={`Select ${row.original.payee}`}
       />
     ),
     enableSorting: false,
@@ -40,114 +39,64 @@ export const columns: ColumnDef<ResponseType>[] = [
   },
   {
     accessorKey: "date",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Date
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => {
-        const date = row.getValue("date") as Date;
-
-        return (
-          <span>
-            {format(date, "dd MMMM, yyyy")}
-          </span>
-        )
-    }
-  },
-  {
-    accessorKey: "category",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Category
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => {
-        return (
-          <CategoryColumn
-            id={row.original.id}
-            category={row.original.category}
-            categoryId={row.original.categoryId}
-          />
-        )
-    }
+    header: ({ column }) => <SortableHeader column={column} title="Date" />,
+    cell: ({ row }) => (
+      <span className="whitespace-nowrap text-muted-foreground tabular-nums">
+        {format(toLocalCalendarDate(row.original.date), "MMM d, yyyy")}
+      </span>
+    ),
   },
   {
     accessorKey: "payee",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Payee
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
+    header: ({ column }) => <SortableHeader column={column} title="Payee" />,
+    cell: ({ row }) => (
+      <div className="min-w-0 max-w-64">
+        <p className="truncate font-medium">{row.original.payee}</p>
+        {row.original.notes && (
+          <p className="truncate text-xs text-muted-foreground" title={row.original.notes}>
+            {row.original.notes}
+          </p>
+        )}
+      </div>
+    ),
   },
   {
-    accessorKey: "amount",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Amount
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => {
-      const amount = parseFloat(row.getValue("amount"));
-
-        return (
-          <Badge
-            variant={amount < 0 ? "destructive" : "primary"}
-            className="text-xs font-medium px-3.5 py-2.5"
-          >
-            {formatCurrency(amount)}
-          </Badge>
-        )
-    }
+    accessorKey: "category",
+    header: ({ column }) => <SortableHeader column={column} title="Category" />,
+    cell: ({ row }) => (
+      <CategoryColumn
+        id={row.original.id}
+        category={row.original.category}
+        categoryId={row.original.categoryId}
+      />
+    ),
   },
   {
     accessorKey: "account",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Account
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => {
-        return (
-          <AccountColumn
-            account={row.original.account}
-            accountId={row.original.accountId}
-          />
-        )
-    }
+    header: ({ column }) => <SortableHeader column={column} title="Account" />,
+    cell: ({ row }) => (
+      <AccountColumn
+        account={row.original.account}
+        accountId={row.original.accountId}
+      />
+    ),
+  },
+  {
+    accessorKey: "amount",
+    header: ({ column }) => <SortableHeader column={column} title="Amount" align="right" />,
+    cell: ({ row }) => (
+      <div className="text-right">
+        <Amount value={row.original.amount} />
+      </div>
+    ),
   },
   {
     id: "actions",
-    cell:  ({ row }) => <Actions id={row.original.id} />
+    header: () => <span className="sr-only">Actions</span>,
+    cell: ({ row }) => (
+      <div className="text-right">
+        <Actions id={row.original.id} label={row.original.payee} />
+      </div>
+    ),
   }
 ];

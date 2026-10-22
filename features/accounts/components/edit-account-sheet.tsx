@@ -6,7 +6,7 @@ import { useEditAccount } from "@/features/accounts/api/use-edit-account";
 import { useDeleteAccount } from "@/features/accounts/api/use-delete-account";
 
 import { z } from "zod";
-import { insertAccountSchema } from "@/db/schema";
+import { nameSchema } from "@/db/schema";
 import { useConfirm } from "@/hooks/use-confirm";
 
 import {
@@ -18,9 +18,7 @@ import {
 } from "@/components/ui/sheet";
 
 
-const formSchema = insertAccountSchema.pick({
-    name: true,
-}) as unknown as z.ZodType<any, any, any>;
+const formSchema = nameSchema;
 
 type FormValues = z.input<typeof formSchema>;
 
@@ -29,7 +27,7 @@ export const EditAccountSheet = () => {
 
     const [ConfirmDialog, confirm] = useConfirm(
         "Are you sure?",
-        "You are about to delete this account."
+        "This account and all of its transactions will be permanently deleted."
     )
 
     const accountQuery = useGetAccount(id);
@@ -83,7 +81,7 @@ export const EditAccountSheet = () => {
                 </SheetHeader>
                 {isLoading
                     ? (
-                        <div className="absolute inset-0 flex items-center">
+                        <div className="absolute inset-0 flex items-center justify-center">
                             <Loader2 className="size-4 text-muted-foreground animate-spin" />
                         </div>
                     ) : (

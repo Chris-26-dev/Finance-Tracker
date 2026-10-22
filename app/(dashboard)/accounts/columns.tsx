@@ -1,10 +1,10 @@
 "use client"
 
 import { InferResponseType } from "hono";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox"
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
+
+import { Checkbox } from "@/components/ui/checkbox"
+import { SortableHeader } from "@/components/sortable-header";
 import { client } from "@/lib/hono";
 import { Actions } from "@/app/(dashboard)/accounts/actions";
 
@@ -20,14 +20,14 @@ export const columns: ColumnDef<ResponseType>[] = [
           (table.getIsSomePageRowsSelected() && "indeterminate")
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
+        aria-label="Select all on this page"
       />
     ),
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
+        aria-label={`Select ${row.original.name}`}
       />
     ),
     enableSorting: false,
@@ -35,20 +35,16 @@ export const columns: ColumnDef<ResponseType>[] = [
   },
   {
     accessorKey: "name",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    }
+    header: ({ column }) => <SortableHeader column={column} title="Name" />,
+    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
   {
     id: "actions",
-    cell:  ({ row }) => <Actions id={row.original.id} />
+    header: () => <span className="sr-only">Actions</span>,
+    cell: ({ row }) => (
+      <div className="text-right">
+        <Actions id={row.original.id} label={row.original.name} />
+      </div>
+    ),
   }
 ];

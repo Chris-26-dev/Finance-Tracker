@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/date-picker";
 import { AmountInput } from "@/components/amount-input";
-import { insertAccountSchema, insertTransactionSchema } from "@/db/schema";
+import {
+    insertTransactionSchema,
+    MAX_AMOUNT_MILIUNITS,
+    MAX_NOTES_LENGTH,
+    MAX_PAYEE_LENGTH,
+} from "@/db/schema";
 import {
     Form,
     FormControl,
@@ -18,15 +23,37 @@ import {
 } from "@/components/ui/form";
 import { Select } from "@/components/select";
 import { Textarea } from "@/components/ui/textarea";
-import { convertAmountToMiliunits } from "@/lib/utils";
+import { convertAmountToMiliunits, toUtcCalendarDate } from "@/lib/utils";
 
-const formSchema = z.object({
-    date: z.coerce.date(),
-    accountId: z.string(),
+const MAX_AMOUNT = MAX_AMOUNT_MILIUNITS / 1000;
+
+export const formSchema = z.object({
+    date: z.date({
+        required_error: "Pick a date",
+        invalid_type_error: "Pick a date",
+    }),
+    accountId: z.string().min(1, "Select an account"),
     categoryId: z.string().nullable().optional(),
-    payee: z.string(),
-    amount: z.string(),
-    notes: z.string().nullable().optional(),
+    payee: z
+        .string()
+        .trim()
+        .min(1, "Payee is required")
+        .max(MAX_PAYEE_LENGTH, `Payee must be ${MAX_PAYEE_LENGTH} characters or fewer`),
+    amount: z
+        .string()
+        .trim()
+        .min(1, "Amount is required")
+        .refine((value) => Number.isFinite(Number(value)), "Enter a valid amount")
+        .refine((value) => Number(value) !== 0, "Amount cannot be zero")
+        .refine(
+            (value) => Math.abs(Number(value)) <= MAX_AMOUNT,
+            `Amount must be at most ${MAX_AMOUNT.toLocaleString("en-US")}`,
+        ),
+    notes: z
+        .string()
+        .max(MAX_NOTES_LENGTH, `Notes must be ${MAX_NOTES_LENGTH} characters or fewer`)
+        .nullable()
+        .optional(),
 });
 
 const apiSchema = insertTransactionSchema.omit({
@@ -36,16 +63,19 @@ const apiSchema = insertTransactionSchema.omit({
 type FormValues = z.input<typeof formSchema>;
 type ApiFormValues = z.input<typeof apiSchema>;
 
+type Option = { label: string; value: string; };
+
 type Props = {
     id?: string;
     defaultValues?: FormValues;
     onSubmit: (values: ApiFormValues) => void;
     onDelete?: () => void;
     disabled?: boolean;
-    accountOptions: { label: string; value: string; }[];
-    categoryOptions: { label: string; value: string; }[];
-    onCreateAccount: (name: string) => void;
-    onCreateCategory: (name: string) => void;
+    accountOptions: Option[];
+    categoryOptions: Option[];
+    // Resolve with the new record's id so it can be selected immediately.
+    onCreateAccount: (name: string) => Promise<string | undefined>;
+    onCreateCategory: (name: string) => Promise<string | undefined>;
 };
 
 export const TransactionForm = ({
@@ -73,19 +103,15 @@ export const TransactionForm = ({
     });
 
     const handleSubmit = (values: FormValues) => {
-        console.log({ values })
+        const amountInMiliunits = convertAmountToMiliunits(Number(values.amount));
+        const notes = values.notes?.trim();
 
-        const amount = parseFloat(values.amount)
-        const amountInMiliunits = convertAmountToMiliunits(amount);
-
-        const fixedDate = new Date(Date.UTC(
-            values.date.getFullYear(),
-            values.date.getMonth(),
-            values.date.getDate()
-        ));
         onSubmit({
             ...values,
-            date: fixedDate,
+            payee: values.payee.trim(),
+            categoryId: values.categoryId || null,
+            notes: notes ? notes : null,
+            date: toUtcCalendarDate(values.date),
             amount: amountInMiliunits,
         });
     };
@@ -98,12 +124,16 @@ export const TransactionForm = ({
         <Form {...form}>
             <form
                 onSubmit={form.handleSubmit(handleSubmit)}
-                className="space-y-4 px-6 pt-4">
+                className="space-y-4 px-4 pb-6"
+                noValidate>
                 <FormField
                     name="date"
                     control={form.control}
                     render={({ field }) => (
                         <FormItem>
+                            <FormLabel>
+                                Date
+                            </FormLabel>
                             <FormControl>
                                 <DatePicker
                                     value={field.value}
@@ -111,13 +141,14 @@ export const TransactionForm = ({
                                     disabled={disabled}
                                 />
                             </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
                 <FormField
                     name="accountId"
                     control={form.control}
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                         <FormItem>
                             <FormLabel>
                                 Account
@@ -126,12 +157,19 @@ export const TransactionForm = ({
                                 <Select
                                     placeholder="Select an account"
                                     options={accountOptions}
-                                    onCreate={onCreateAccount}
+                                    onCreate={async (name) => {
+                                        const createdId = await onCreateAccount(name);
+                                        if (createdId) {
+                                            field.onChange(createdId);
+                                        }
+                                    }}
                                     value={field.value}
-                                    onChange={field.onChange}
+                                    onChange={(value) => field.onChange(value ?? "")}
                                     disabled={disabled}
+                                    invalid={!!fieldState.error}
                                 />
                             </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
@@ -147,12 +185,19 @@ export const TransactionForm = ({
                                 <Select
                                     placeholder="Select a category"
                                     options={categoryOptions}
-                                    onCreate={onCreateCategory}
+                                    onCreate={async (name) => {
+                                        const createdId = await onCreateCategory(name);
+                                        if (createdId) {
+                                            field.onChange(createdId);
+                                        }
+                                    }}
                                     value={field.value}
-                                    onChange={field.onChange}
+                                    onChange={(value) => field.onChange(value ?? null)}
                                     disabled={disabled}
+                                    isClearable
                                 />
                             </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
@@ -171,6 +216,7 @@ export const TransactionForm = ({
                                     {...field}
                                 />
                             </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
@@ -185,10 +231,12 @@ export const TransactionForm = ({
                             <FormControl>
                                 <AmountInput
                                     {...field}
+                                    onChange={(value) => field.onChange(value ?? "")}
                                     disabled={disabled}
                                     placeholder="0.00"
                                 />
                             </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
@@ -208,10 +256,11 @@ export const TransactionForm = ({
                                     placeholder="Optional notes"
                                 />
                             </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )}
                 />
-                <Button className="w-full" disabled={disabled}>
+                <Button type="submit" className="w-full" disabled={disabled}>
                     {id ? "Save changes" : "Create transaction"}
                 </Button>
                 {!!id && (
@@ -219,10 +268,10 @@ export const TransactionForm = ({
                         type="button"
                         disabled={disabled}
                         onClick={handleDelete}
-                        className="w-full"
+                        className="w-full text-destructive hover:text-destructive"
                         variant="outline"
                     >
-                        <Trash className="size-4 mr-2" />
+                        <Trash className="size-4" />
                         Delete transaction
                     </Button>
                 )}

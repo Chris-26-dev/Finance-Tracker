@@ -2,25 +2,51 @@
 
 import qs from "query-string";
 import { useState } from "react";
-import { format, subDays } from "date-fns";
+import {
+    endOfMonth,
+    format,
+    parse,
+    startOfMonth,
+    startOfYear,
+    subDays,
+    subMonths,
+} from "date-fns";
 import { DateRange } from "react-day-picker";
-import { ChevronDown } from "lucide-react";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import {
     usePathname,
     useRouter,
     useSearchParams
 } from "next/navigation";
 
-//import { useGetSummary } from "@/features/summary/api/use-get-summary";
-import { formatDateRange } from "@/lib/utils";
+import { cn, DAY_PARAM_FORMAT, DEFAULT_RANGE_DAYS, formatDateRange, parseDayParam } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-    PopoverClose,
 } from "@/components/ui/popover";
+
+// URL params are calendar days; parse them as local dates so the label and
+// calendar never shift by a day for users west of UTC.
+const fromParam = (value: string | null) =>
+    value && parseDayParam(value) ? parse(value, DAY_PARAM_FORMAT, new Date()) : undefined;
+
+const PRESETS: { label: string; range: () => { from: Date; to: Date } }[] = [
+    { label: "Last 7 days", range: () => ({ from: subDays(new Date(), 7), to: new Date() }) },
+    { label: "Last 30 days", range: () => ({ from: subDays(new Date(), 30), to: new Date() }) },
+    { label: "Last 90 days", range: () => ({ from: subDays(new Date(), 90), to: new Date() }) },
+    { label: "This month", range: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
+    {
+        label: "Last month",
+        range: () => {
+            const lastMonth = subMonths(new Date(), 1);
+            return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
+        },
+    },
+    { label: "This year", range: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+];
 
 export const DateFilter = () => {
     const router = useRouter();
@@ -28,23 +54,24 @@ export const DateFilter = () => {
 
     const params = useSearchParams();
     const accountId = params.get("accountId");
-    const from = params.get("from") || "";
-    const to = params.get("to") || "";
+    const from = fromParam(params.get("from"));
+    const to = fromParam(params.get("to"));
 
     const defaultTo = new Date();
-    const defaultFrom = subDays(defaultTo, 30);
+    const defaultFrom = subDays(defaultTo, DEFAULT_RANGE_DAYS);
 
     const paramState = {
-        from: from ? new Date(from) : defaultFrom,
-        to: to ? new Date(to) : defaultTo,
+        from: from ?? defaultFrom,
+        to: to ?? defaultTo,
     };
 
+    const [open, setOpen] = useState(false);
     const [date, setDate] = useState<DateRange | undefined>(paramState);
-    
+
     const pushToUrl = (dateRange: DateRange | undefined) => {
         const query = {
-            from: format(dateRange?.from || defaultFrom, "yyyy-MM-dd"),
-            to: format(dateRange?.to || defaultTo, "yyyy-MM-dd"),
+            from: dateRange?.from ? format(dateRange.from, DAY_PARAM_FORMAT) : undefined,
+            to: dateRange?.to ? format(dateRange.to, DAY_PARAM_FORMAT) : undefined,
             accountId,
         };
 
@@ -56,56 +83,79 @@ export const DateFilter = () => {
         router.push(url);
     };
 
-    const onReset = () => {
-        setDate(undefined);
-        pushToUrl(undefined);
+    const onOpenChange = (nextOpen: boolean) => {
+        // Start from what the URL currently says (e.g. after back/forward).
+        if (nextOpen) setDate(paramState);
+        setOpen(nextOpen);
     };
 
+    const apply = (range: DateRange | undefined) => {
+        pushToUrl(range);
+        setOpen(false);
+    };
+
+    const onReset = () => apply(undefined);
+
+    const isCustom = !!from || !!to;
+
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={onOpenChange}>
             <PopoverTrigger asChild>
                 <Button
-                    disabled={false}
-                    size="sm"
                     variant="outline"
-                    className="lg:w-auto w-full h-9 rounded-md px-3 font-normal bg-white/10 hover:bg-white/20 hover:text-white border-none focus:ring-offset-0 focus:ring-transparent outline-none text-white focus:bg-white/30 transition"
+                    className={cn("w-full justify-between font-normal sm:w-auto", !isCustom && "text-muted-foreground")}
+                    aria-label={`Date range: ${formatDateRange(paramState)}`}
                 >
-                    <span>
+                    <span className="flex items-center gap-2">
+                        <CalendarDays className="size-4" aria-hidden />
                         {formatDateRange(paramState)}
                     </span>
-                    <ChevronDown className="ml-2 size-4 opacity-50"/>
+                    <ChevronDown className="size-4 opacity-50" aria-hidden />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="lg:w-auto w-full p-0" align="start">
-                <Calendar 
-                    disabled={false}
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
-                />
-                <div className="p-4 w-full flex items-center gap-x-2">
-                    <PopoverClose asChild>
-                        <Button
-                            onClick={onReset}
-                            disabled={!date?.from || !date?.to}
-                            className="w-1/2"
-                            variant="outline"
-                        >
-                        Reset
-                        </Button>
-                    </PopoverClose>
-                    <PopoverClose asChild>
-                        <Button
-                            onClick={() => pushToUrl(date)}
-                            disabled={!date?.from || !date?.to}
-                            className="w-1/2"
-                        >
-                        Apply
-                        </Button>
-                    </PopoverClose>
+            <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="end">
+                <div className="flex flex-col sm:flex-row">
+                    <div className="flex flex-row flex-wrap gap-1 border-b p-2 sm:w-36 sm:flex-col sm:border-b-0 sm:border-r">
+                        {PRESETS.map((preset) => (
+                            <Button
+                                key={preset.label}
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => apply(preset.range())}
+                            >
+                                {preset.label}
+                            </Button>
+                        ))}
+                    </div>
+                    <div>
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={date?.from}
+                            selected={date}
+                            onSelect={setDate}
+                            numberOfMonths={2}
+                            disabled={{ after: new Date() }}
+                        />
+                        <div className="flex items-center justify-end gap-2 border-t p-3">
+                            <Button
+                                onClick={onReset}
+                                disabled={!isCustom}
+                                variant="ghost"
+                                size="sm"
+                            >
+                                Reset
+                            </Button>
+                            <Button
+                                onClick={() => apply(date)}
+                                disabled={!date?.from || !date?.to}
+                                size="sm"
+                            >
+                                Apply
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </PopoverContent>
         </Popover>

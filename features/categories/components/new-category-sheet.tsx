@@ -3,7 +3,7 @@ import { CategoryForm } from "@/features/categories/components/category-form";
 import { useCreateCategory } from "@/features/categories/api/use-create-category";
 
 import { z } from "zod";
-import { insertCategorySchema } from "@/db/schema";
+import { nameSchema } from "@/db/schema";
 
 import { 
     Sheet,
@@ -13,9 +13,7 @@ import {
     SheetTitle
 } from "@/components/ui/sheet";
 
-const formSchema = insertCategorySchema.pick({
-    name: true,
-}) as unknown as z.ZodType<any, any, any>;
+const formSchema = nameSchema;
 
 type FormValues = z.input<typeof formSchema>;
 

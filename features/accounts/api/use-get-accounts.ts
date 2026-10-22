@@ -1,19 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-//This is Hook and type safety
 export const useGetAccounts = () => {
     const query = useQuery({
         queryKey: ["accounts"],
         queryFn: async () => {
             const response = await client.api.accounts.$get();
 
-            if (!response.ok){
-                throw new Error("Failed to fetch accounts");
-            }
-
-            const { data } = await response.json();
+            const { data } = await handleResponse(response);
             return data;
         },
     });

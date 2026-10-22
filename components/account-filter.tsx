@@ -1,16 +1,16 @@
 "use client";
 
 import qs from "query-string";
-import { 
+import { Wallet } from "lucide-react";
+import {
     usePathname,
     useRouter,
     useSearchParams
 } from "next/navigation";
 
 import { useGetAccounts } from "@/features/accounts/api/use-get-accounts";
-import { useGetSummary } from "@/features/summary/api/use-get-summary";
 
-import { 
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -28,10 +28,6 @@ export const AccountFilter = () => {
     const to = params.get("to") || "";
 
     const {
-        isLoading: isLoadingSummary
-    } = useGetSummary();
-
-    const { 
         data: accounts,
         isLoading: isLoadingAccounts
     } = useGetAccounts();
@@ -55,16 +51,22 @@ export const AccountFilter = () => {
         router.push(url);
     };
 
+    // A stale accountId (e.g. a deleted account) falls back to "All accounts".
+    const value = accountId === "all" || accounts?.some((account) => account.id === accountId)
+        ? accountId
+        : "all";
+
     return (
         <Select
-            value={accountId}
+            value={value}
             onValueChange={onChange}
-            disabled={isLoadingAccounts || isLoadingSummary}
+            disabled={isLoadingAccounts}
         >
-            <SelectTrigger
-                className="lg:w-auto w-full h-9 rounded-md px-3 font-normal bg-white/10 hover:bg-white/20 hover:text-white border-none focus:ring-offset-0 focus:ring-transparent outline-none text-white focus:bg-white/30 transition"
-            >
-                <SelectValue placeholder="Select account" />
+            <SelectTrigger className="w-full sm:w-48" aria-label="Filter by account">
+                <span className="flex min-w-0 items-center gap-2">
+                    <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <SelectValue placeholder="Select account" />
+                </span>
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">
@@ -79,4 +81,3 @@ export const AccountFilter = () => {
         </Select>
     )
 }
-

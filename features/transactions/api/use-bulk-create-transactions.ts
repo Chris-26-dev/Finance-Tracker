@@ -3,8 +3,9 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<typeof client.api.transactions["bulk-create"]["$post"]>;
+type ResponseType = InferResponseType<typeof client.api.transactions["bulk-create"]["$post"], 200>;
 type RequestType = InferRequestType<typeof client.api.transactions["bulk-create"]["$post"]>["json"];
 
 export const useBulkCreateTransactions = () => {
@@ -17,15 +18,15 @@ export const useBulkCreateTransactions = () => {
     >({
         mutationFn: async (json) => {
             const response = await client.api.transactions["bulk-create"]["$post"]({ json });
-            return await response.json();
+            return await handleResponse(response);
         },
         onSuccess: () => {
             toast.success("Transactions created")
             queryClient.invalidateQueries({ queryKey: ["transactions"] });
             queryClient.invalidateQueries({ queryKey: ["summary"] });
         },
-        onError: () => {
-            toast.error("Failed to create transactions")
+        onError: (error) => {
+            toast.error("Failed to create transactions", { description: error.message })
         },
     });
 

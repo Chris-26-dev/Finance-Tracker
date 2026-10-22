@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-//This is Hook and type safety
 export const useGetCategory = (id?: string) => {
     const query = useQuery({
         enabled: !!id,
@@ -12,11 +12,7 @@ export const useGetCategory = (id?: string) => {
                 param: { id },
             });
 
-            if (!response.ok){
-                throw new Error("Failed to fetch category");
-            }
-
-            const { data } = await response.json();
+            const { data } = await handleResponse(response);
             return data;
         },
     });

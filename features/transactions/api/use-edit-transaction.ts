@@ -3,8 +3,9 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<typeof client.api.transactions[":id"]["$patch"]>;
+type ResponseType = InferResponseType<typeof client.api.transactions[":id"]["$patch"], 200>;
 type RequestType = InferRequestType<typeof client.api.transactions[":id"]["$patch"]>["json"];
 
 export const useEditTransaction = (id?: string) => {
@@ -20,7 +21,7 @@ export const useEditTransaction = (id?: string) => {
                 param: { id },
                 json,      
             });
-            return await response.json();
+            return await handleResponse(response);
         },
         onSuccess: () => {
             toast.success("Transaction updated")
@@ -28,8 +29,8 @@ export const useEditTransaction = (id?: string) => {
             queryClient.invalidateQueries({ queryKey: ["transactions"] });
             queryClient.invalidateQueries({ queryKey: ["summary"] });
         },
-        onError: () => {
-            toast.error("Failed to edit transaction")
+        onError: (error) => {
+            toast.error("Failed to edit transaction", { description: error.message })
         },
     });
 

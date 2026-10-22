@@ -1,6 +1,7 @@
-import { useOpenCategory } from "@/features/categories/hooks/use-open-category";
 import { TriangleAlert } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+import { useOpenCategory } from "@/features/categories/hooks/use-open-category";
 import { useOpenTransaction } from "@/features/transactions/hooks/use-open-transaction";
 
 type Props = {
@@ -17,21 +18,31 @@ export const CategoryColumn = ({
     const {onOpen: onOpenCategory} = useOpenCategory();
     const {onOpen: onOpenTransaction} = useOpenTransaction();
 
+    // A category the caller can't see (legacy data) is treated as missing.
+    const hasCategory = !!category && !!categoryId;
+
     const onClick = () => {
-        if (categoryId) {
-        onOpenCategory(categoryId)
+        if (hasCategory) {
+            onOpenCategory(categoryId)
         } else {
             onOpenTransaction(id);
         }
     }
 
     return (
-        <div onClick={onClick} className={cn(
-            "flex items-center cursor-pointer hover:underline",
-            !category && "text-rose-500"
-            )}>
-            {!category && <TriangleAlert className="mr-2 size-4 shrink-0"/>}
-            {category || "Uncategorized"}
-        </div>
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={hasCategory ? `Edit category ${category}` : "Assign a category"}
+            className={cn(
+                "inline-flex max-w-40 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                hasCategory
+                    ? "bg-secondary text-secondary-foreground hover:bg-accent"
+                    : "border-warning/40 text-warning hover:bg-warning/10",
+            )}
+        >
+            {!hasCategory && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
+            <span className="truncate">{hasCategory ? category : "Uncategorized"}</span>
+        </button>
     );
 };

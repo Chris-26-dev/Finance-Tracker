@@ -1,6 +1,12 @@
+"use client";
+
+import { useState } from "react";
+import { AreaChart, BarChart3, FileSearch, LineChart } from "lucide-react";
+
 import {
     Card,
     CardContent,
+    CardDescription,
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
@@ -11,20 +17,27 @@ import {
     SelectValue,
     SelectItem
 } from "@/components/ui/select";
-import { AreaChart, BarChart3, FileSearch, LineChart, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/empty-state";
 import { AreaVariant } from "@/components/area-variant";
 import { BarVariant } from "@/components/bar-variant";
 import { LineVariant } from "@/components/line-variant";
-import { useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DailyPoint } from "@/components/chart-axes";
 
 type Props = {
-    data?: {
-        date: string;
-        income: number;
-        expenses: number;
-    }[];
+    data?: DailyPoint[];
 };
+
+const CHART_TYPES = [
+    { value: "area", label: "Area", icon: AreaChart },
+    { value: "line", label: "Line", icon: LineChart },
+    { value: "bar", label: "Bar", icon: BarChart3 },
+] as const;
+
+const LEGEND = [
+    { label: "Income", color: "var(--income)" },
+    { label: "Expenses", color: "var(--expense)" },
+];
 
 export const Chart = ({ data = [] }: Props) => {
     const [chartType, setChartType] = useState("area");
@@ -35,56 +48,47 @@ export const Chart = ({ data = [] }: Props) => {
     }
 
     return (
-        <Card className="border-none drop-shadow-sm">
-            <CardHeader className="flex space-y-2 lg:space-y-0 lg:flex-row lg:items-center justify-between">
-                <CardTitle className="text-xl line-clamp-1">
-                    Transactions
-                </CardTitle>
+        <Card className="h-full gap-4">
+            <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                    <CardTitle className="text-base">Cash flow</CardTitle>
+                    <CardDescription>Daily income and expenses</CardDescription>
+                </div>
                 <Select
-                    defaultValue={chartType}
+                    value={chartType}
                     onValueChange={onTypeChange}
                 >
-                    <SelectTrigger className="lg:w-auto h-9 rounded-md px-3">
-                        <SelectValue placeholder="Chart type" />
+                    <SelectTrigger size="sm" className="w-28" aria-label="Chart type">
+                        <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="area">
-                            <div className="flex items-center">
-                                <AreaChart className="size-4 mr-2 shrink-0" />
-                                <p className="line-clamp-1">
-                                    Area chart
-                                </p>
-                            </div>
-                        </SelectItem>
-                        <SelectItem value="line">
-                            <div className="flex items-center">
-                                <LineChart className="size-4 mr-2 shrink-0" />
-                                <p className="line-clamp-1">
-                                    Line chart
-                                </p>
-                            </div>
-                        </SelectItem>
-                        <SelectItem value="bar">
-                            <div className="flex items-center">
-                                <BarChart3 className="size-4 mr-2 shrink-0" />
-                                <p className="line-clamp-1">
-                                    Bar chart
-                                </p>
-                            </div>
-                        </SelectItem>
+                    <SelectContent align="end">
+                        {CHART_TYPES.map(({ value, label, icon: Icon }) => (
+                            <SelectItem key={value} value={value}>
+                                <Icon className="size-4" aria-hidden />
+                                {label}
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-2 sm:px-6">
                 {data.length === 0 ? (
-                    <div className="flex flex-col gap-y-4 items-center justify-center h-[350px] w-full">
-                        <FileSearch className="size-6 text-muted-foreground" />
-                        <p className="text-muted-foreground text-sm">
-                            No data for this period
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon={FileSearch}
+                        title="No transactions in this period"
+                        description="Try a wider date range or add a transaction."
+                        className="h-[320px]"
+                    />
                 ) : (
                     <>
+                        <ul className="mb-3 flex gap-4 px-4 text-xs text-muted-foreground sm:px-0" aria-label="Legend">
+                            {LEGEND.map((item) => (
+                                <li key={item.label} className="flex items-center gap-1.5">
+                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                    {item.label}
+                                </li>
+                            ))}
+                        </ul>
                         {chartType === "line" && <LineVariant data={data} />}
                         {chartType === "area" && <AreaVariant data={data} />}
                         {chartType === "bar" && <BarVariant data={data} />}
@@ -98,15 +102,16 @@ export const Chart = ({ data = [] }: Props) => {
 
 export const ChartLoading = () => {
     return (
-         <Card className="border-none drop-shadow-sm">
-            <CardHeader className="flex space-y-2 lg:space-y-0 lg:flex-row lg:items-center justify-between">
-                    <Skeleton className="h-8 w-48"/>
-                    <Skeleton className="h-8 lg:w-[120px] w-full"/>
+        <Card className="h-full gap-4" aria-hidden>
+            <CardHeader className="flex items-start justify-between">
+                <div className="space-y-2">
+                    <Skeleton className="h-5 w-24"/>
+                    <Skeleton className="h-4 w-40"/>
+                </div>
+                <Skeleton className="h-8 w-28"/>
             </CardHeader>
             <CardContent>
-               <div className="h-[350px] w-full flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 text-slate-300 animate-spin"/>
-               </div>
+                <Skeleton className="h-[340px] w-full"/>
             </CardContent>
         </Card>
     );

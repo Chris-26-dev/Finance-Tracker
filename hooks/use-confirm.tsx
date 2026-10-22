@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,35 +10,48 @@ import {
     DialogTitle
 } from "@/components/ui/dialog";
 
+type ConfirmOptions = {
+    confirmLabel?: string;
+    destructive?: boolean;
+};
 
-//[() => JSX.Element, () => Promise<unknown>] 
+/**
+ * Promise-based confirmation dialog. The promise resolves exactly once:
+ * `true` on Confirm, `false` on Cancel, Escape, the close button or an
+ * outside click. Calling `confirm()` while a dialog is already open settles
+ * the earlier promise with `false` instead of leaving it pending.
+ */
 export const useConfirm = (
     title: string,
     message: string,
+    { confirmLabel = "Confirm", destructive = false }: ConfirmOptions = {},
 ): [() => React.ReactNode, () => Promise<boolean>] => {
-    const [promise, setPromise] = useState<{ resolve: (value: boolean) => void } | null>(null);
+    const [open, setOpen] = useState(false);
+    const resolver = useRef<((value: boolean) => void) | null>(null);
 
-    const confirm = () =>
-        new Promise<boolean>((resolve) => {
-            setPromise({ resolve });
+    const settle = useCallback((value: boolean) => {
+        const resolve = resolver.current;
+        resolver.current = null;
+        setOpen(false);
+        resolve?.(value);
+    }, []);
+
+    const confirm = useCallback(() => {
+        resolver.current?.(false);
+
+        return new Promise<boolean>((resolve) => {
+            resolver.current = resolve;
+            setOpen(true);
         });
-
-    const handleClose = () => {
-        setPromise(null);
-    };
-
-    const handleConfirm = () => {
-        promise?.resolve(true);
-        handleClose();
-    };
-
-    const handleCancel = () => {
-        promise?.resolve(false);
-        handleClose();
-    };
+    }, []);
 
     const ConfirmationDialog = () => (
-        <Dialog open={promise !== null}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                if (!nextOpen) settle(false);
+            }}
+        >
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
@@ -46,13 +59,16 @@ export const useConfirm = (
                 </DialogHeader>
                 <DialogFooter className="pt-2">
                     <Button
-                        onClick={handleCancel}
+                        onClick={() => settle(false)}
                         variant="outline"
                     >
                         Cancel
                     </Button>
-                    <Button onClick={handleConfirm}>
-                        Confirm
+                    <Button
+                        onClick={() => settle(true)}
+                        variant={destructive ? "destructive" : "default"}
+                    >
+                        {confirmLabel}
                     </Button>
                 </DialogFooter>
             </DialogContent>

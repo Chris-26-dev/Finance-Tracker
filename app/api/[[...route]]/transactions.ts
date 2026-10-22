@@ -2,11 +2,18 @@ import { Hono } from "hono";
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { createId } from "@paralleldrive/cuid2";
-import { transactions, insertTransactionSchema, categories, accounts } from "@/db/schema";
+import {
+    transactions,
+    insertTransactionSchema,
+    categories,
+    accounts,
+    MAX_BULK_TRANSACTIONS,
+} from "@/db/schema";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { subDays, parse } from "date-fns";
+import { resolveDateRange } from "@/lib/utils";
+import { FORBIDDEN_REFERENCE_ERROR, ownsReferences } from "./ownership";
 
 
 const createTransactionSchema = insertTransactionSchema.omit({
@@ -30,15 +37,11 @@ const app = new Hono()
                 return c.json({ error: "unauthorized" }, 401)
             }
 
-            const defaultTo = new Date();
-            const defaultFrom = subDays(defaultTo, 30);
+            const range = resolveDateRange(from, to);
 
-            const startDate = from 
-                ? parse(from, "yyyy-MM-dd", new Date())
-                : defaultFrom;
-            const endDate = to 
-                ? parse(to, "yyyy-MM-dd", new Date())
-                : defaultTo;
+            if (!range) {
+                return c.json({ error: "Invalid date range" }, 400);
+            }
 
             const data = await db
                 .select({
@@ -54,13 +57,19 @@ const app = new Hono()
                 })
                 .from(transactions)
                 .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-                .leftJoin(categories, eq(transactions.categoryId, categories.id))
+                .leftJoin(
+                    categories,
+                    and(
+                        eq(transactions.categoryId, categories.id),
+                        eq(categories.userId, auth.userId),
+                    ),
+                )
                 .where(
                     and(
                         accountId ? eq(transactions.accountId, accountId) : undefined,
                         eq(accounts.userId, auth.userId),
-                        gte(transactions.date, startDate),
-                        lte(transactions.date, endDate),
+                        gte(transactions.date, range.start),
+                        lte(transactions.date, range.end),
                     )
                 )
                 .orderBy(desc(transactions.date))
@@ -126,6 +135,15 @@ const app = new Hono()
                 return c.json({ error: "unauthorized" }, 401);
             }
 
+            const allowed = await ownsReferences(auth.userId, {
+                accountIds: [values.accountId],
+                categoryIds: [values.categoryId],
+            });
+
+            if (!allowed) {
+                return c.json({ error: FORBIDDEN_REFERENCE_ERROR }, 403);
+            }
+
             const [data] = await db.insert(transactions).values({
                 id: createId(),
                 ...values,
@@ -140,7 +158,7 @@ const app = new Hono()
             "json",
             z.array(
                 createTransactionSchema
-            ),
+            ).min(1).max(MAX_BULK_TRANSACTIONS),
         ),
         async (c) => {
             const auth = getAuth(c);
@@ -148,6 +166,18 @@ const app = new Hono()
 
             if (!auth?.userId){
                 return c.json({ error: "Unauthorized" }, 401);
+            }
+
+            // Validate every referenced account/category before writing
+            // anything; the single multi-row INSERT below is atomic, so the
+            // request is all-or-nothing.
+            const allowed = await ownsReferences(auth.userId, {
+                accountIds: values.map((value) => value.accountId),
+                categoryIds: values.map((value) => value.categoryId),
+            });
+
+            if (!allowed) {
+                return c.json({ error: FORBIDDEN_REFERENCE_ERROR }, 403);
             }
 
             const data = await db
@@ -200,8 +230,8 @@ const app = new Hono()
                 .returning({
                     id: transactions.id,
                 });
-                
-                
+
+
 
             return c.json({ data });
         },
@@ -232,6 +262,17 @@ const app = new Hono()
                 return c.json({ error: "Unauthorized" }, 401);
             }
 
+            // The new account/category must also belong to the caller, so a
+            // transaction can't be moved into someone else's account.
+            const allowed = await ownsReferences(auth.userId, {
+                accountIds: [values.accountId],
+                categoryIds: [values.categoryId],
+            });
+
+            if (!allowed) {
+                return c.json({ error: FORBIDDEN_REFERENCE_ERROR }, 403);
+            }
+
             const transactionsToUpdate = db.$with("transactions_to_update").as(
                 db.select({ id: transactions.id })
                 .from(transactions)
@@ -247,7 +288,11 @@ const app = new Hono()
             const [data] = await db
                 .with(transactionsToUpdate)
                 .update(transactions)
-                .set(values)
+                .set({
+                    ...values,
+                    categoryId: values.categoryId ?? null,
+                    notes: values.notes ?? null,
+                })
                 .where(
                     inArray(transactions.id, sql`(select id from ${transactionsToUpdate})`)
                 )

@@ -3,8 +3,9 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<typeof client.api.categories.$post>;
+type ResponseType = InferResponseType<typeof client.api.categories.$post, 200>;
 type RequestType = InferRequestType<typeof client.api.categories.$post>["json"];
 
 export const useCreateCategory = () => {
@@ -17,14 +18,14 @@ export const useCreateCategory = () => {
     >({
         mutationFn: async (json) => {
             const response = await client.api.categories.$post({ json });
-            return await response.json();
+            return await handleResponse(response);
         },
         onSuccess: () => {
             toast.success("Category created")
             queryClient.invalidateQueries({ queryKey: ["categories"] });
         },
-        onError: () => {
-            toast.error("Failed to create category")
+        onError: (error) => {
+            toast.error("Failed to create category", { description: error.message })
         },
     });
 

@@ -3,8 +3,9 @@ import { InferRequestType, InferResponseType } from "hono";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/hono";
+import { handleResponse } from "@/lib/api-response";
 
-type ResponseType = InferResponseType<typeof client.api.transactions.$post>;
+type ResponseType = InferResponseType<typeof client.api.transactions.$post, 200>;
 type RequestType = InferRequestType<typeof client.api.transactions.$post>["json"];
 
 export const useCreateTransaction = () => {
@@ -16,9 +17,8 @@ export const useCreateTransaction = () => {
     RequestType
     >({
         mutationFn: async (json) => {
-            console.log("Sending transaction data:", json);
             const response = await client.api.transactions.$post({ json });
-            return await response.json();
+            return await handleResponse(response);
         },
         onSuccess: () => {
             toast.success("Transaction created")
@@ -26,8 +26,7 @@ export const useCreateTransaction = () => {
             queryClient.invalidateQueries({ queryKey: ["summary"] });
         },
         onError: (error) => {
-            console.error("Transaction creation failed:", error);
-            toast.error("Failed to create transaction")
+            toast.error("Failed to create transaction", { description: error.message })
         },
     });
 
